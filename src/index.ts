@@ -1,17 +1,32 @@
+import { createEventHandler } from "@octokit/webhooks";
+import EventSource from "eventsource";
 import "dotenv/config";
 
-import { EmbedBuilder, WebhookClient } from "discord.js";
+const webhookProxyUrl = "https://smee.io/BjvGNtdloGcCODsW";
 
-const webhookClient = new WebhookClient({
-  url: process.env.DISCORD_WEBHOOK_URL!,
-});
+const source = new EventSource(webhookProxyUrl);
 
-const embed = new EmbedBuilder().setTitle("Some Title").setColor(0x00ffff);
+source.onmessage = (event) => {
+  const webhookEvent = JSON.parse(event.data);
 
-webhookClient.send({
-  content: "Webhook test",
-  username: "Github CMS",
-  avatarURL:
-    "https://github.githubassets.com/assets/GitHub-Mark-ea2971cee799.png",
-  embeds: [embed],
-});
+  const eventHandler = createEventHandler({
+    async transform(event) {
+      return event;
+    },
+  });
+
+  eventHandler.on("issue_comment.created", ({ id, name, payload }) => {
+    console.log("new issue comment created");
+    console.log(id);
+    console.log(name);
+    console.log(payload);
+  });
+
+  eventHandler
+    .receive({
+      id: webhookEvent["x-github-delivery"],
+      name: webhookEvent["x-github-event"],
+      payload: webhookEvent.body,
+    })
+    .catch();
+};

@@ -1,6 +1,8 @@
 import { createEventHandler } from "@octokit/webhooks";
 import EventSource from "eventsource";
 import "dotenv/config";
+import { issueCommentSchema } from "./validator/zod.js";
+import { extractAmount } from "./utils.js";
 
 const webhookProxyUrl = "https://smee.io/BjvGNtdloGcCODsW";
 
@@ -16,10 +18,16 @@ source.onmessage = (event) => {
   });
 
   eventHandler.on("issue_comment.created", ({ id, name, payload }) => {
-    console.log("new issue comment created");
-    console.log(id);
-    console.log(name);
-    console.log(payload);
+    const result = issueCommentSchema.safeParse(payload);
+    if (!result.success) return console.log(result.error);
+
+    const comment = result.data;
+    const isCommentValid =
+      comment.comment.user.login === process.env.GITHUB_BOUNTY_ISSUER_USERNAME;
+    if (!isCommentValid) return;
+
+    const amount = extractAmount(comment.comment.body);
+    if (!amount) return;
   });
 
   eventHandler

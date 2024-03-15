@@ -1,40 +1,34 @@
-import { createEventHandler } from "@octokit/webhooks";
-import EventSource from "eventsource";
-import "dotenv/config";
-import { issueCommentSchema } from "./validator/zod.js";
-import { extractAmount } from "./utils.js";
+import { Probot } from "probot";
 
-const webhookProxyUrl = "https://smee.io/BjvGNtdloGcCODsW";
+export default (app: Probot) => {
+  app.log.info("Yay! The app was loaded!");
 
-const source = new EventSource(webhookProxyUrl);
-
-source.onmessage = (event) => {
-  const webhookEvent = JSON.parse(event.data);
-
-  const eventHandler = createEventHandler({
-    async transform(event) {
-      return event;
-    },
+  app.on("issues.opened", async (context) => {
+    if(context.isBot) return;
+    app.log.info("An issue was edited");
+    const issueComment = context.issue({
+      body: "Thanks for opening this issue!",
+    });
+    await context.octokit.issues.createComment(issueComment);
   });
 
-  eventHandler.on("issue_comment.created", ({ id, name, payload }) => {
-    const result = issueCommentSchema.safeParse(payload);
-    if (!result.success) return console.log(result.error);
+  app.on("pull_request.opened", async (context) => {
+    if(context.isBot) return;
+    // TODO: Handle case when pr is opened
+    app.log.info("An pr was created");
+    const issueComment = context.issue({
+      body: "Thanks for opening this PR!",
+    });
+    await context.octokit.issues.createComment(issueComment);
+  })
 
-    const comment = result.data;
-    const isCommentValid =
-      comment.comment.user.login === process.env.GITHUB_BOUNTY_ISSUER_USERNAME;
-    if (!isCommentValid) return;
-
-    const amount = extractAmount(comment.comment.body);
-    if (!amount) return;
-  });
-
-  eventHandler
-    .receive({
-      id: webhookEvent["x-github-delivery"],
-      name: webhookEvent["x-github-event"],
-      payload: webhookEvent.body,
-    })
-    .catch();
+  app.on("issue_comment.created", async(context) => {
+    if(context.isBot) return;
+    // TODO: Handle case when comment is created
+    app.log.info("A comment was created");
+    const issueComment = context.issue({
+      body: "Thanks for creating a comment!",
+    });
+    await context.octokit.issues.createComment(issueComment);
+  })
 };

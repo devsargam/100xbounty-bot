@@ -9,3 +9,5 @@ export const issueCommentSchema = z.object({
     }),
   }),
 });
+
+export type IssueCommentSchemaType = z.infer<typeof issueCommentSchema>;

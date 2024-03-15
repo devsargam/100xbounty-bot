@@ -1,11 +1,13 @@
 import { createEventHandler } from "@octokit/webhooks";
-import EventSource from "eventsource";
 import "dotenv/config";
-import { issueCommentSchema } from "./validator/zod.js";
-import { extractAmount } from "./utils.js";
+import EventSource from "eventsource";
+import { commentHandler } from "./handlers";
+import { EventCache } from "./cache";
+import { issueCommentSchema } from "./validator";
 
 const webhookProxyUrl = "https://smee.io/BjvGNtdloGcCODsW";
 
+const cache = new EventCache();
 const source = new EventSource(webhookProxyUrl);
 
 source.onmessage = (event) => {
@@ -17,17 +19,16 @@ source.onmessage = (event) => {
     },
   });
 
-  eventHandler.on("issue_comment.created", ({ id, name, payload }) => {
+  eventHandler.on("issue_comment.created", async ({ id, payload }) => {
+    // TODO: Fix this somehow I am getting 2 messages for same event
+    if (cache.idPresent(id)) return;
+    cache.setId(id);
+    console.log(payload);
+
     const result = issueCommentSchema.safeParse(payload);
     if (!result.success) return console.log(result.error);
 
-    const comment = result.data;
-    const isCommentValid =
-      comment.comment.user.login === process.env.GITHUB_BOUNTY_ISSUER_USERNAME;
-    if (!isCommentValid) return;
-
-    const amount = extractAmount(comment.comment.body);
-    if (!amount) return;
+    commentHandler({ id, payload: result.data });
   });
 
   eventHandler

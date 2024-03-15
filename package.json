@@ -16,6 +16,7 @@
     "start": "LOG_LEVEL=trace probot run ./lib/index.js"
   },
   "dependencies": {
+    "discord.js": "^14.14.1",
     "probot": "^13.0.1"
   },
   "devDependencies": {
